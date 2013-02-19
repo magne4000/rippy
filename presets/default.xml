@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<preset>
+    <options>
+        <option key="srt-codeset" value="UTF-8" />
+        <option key="srt-offset" value="0" />
+        <option key="srt-lang" value="eng" />
+        <option key="encoder" value="x264" />
+        <option key="two-pass" />
+        <option key="cfr" />
+        <option key="loose-anamorphic" />
+        <option key="decomb" />
+        <option key="encopts" value="open_gop=0:rc-lookahead=50:ref=6:bframes=6:me=umh:subme=8:trellis=0:analyse=all:b-adapt=2:level=4.1:vbv_maxrate=24000:vbv_bufsize=24000:nal_hrd=none:vbv-bufsize=24000:vbv-maxrate=24000:fast_pskip=0:decimate=1:bframes=6:direct=1:weightb=1:weightp=2" />
+        <option key="audio-fallback" value="ffac3" />
+        <option key="vb" handler="video_bitrate" />
+        <option key="aencoder" value="copy" />
+        <option key="mixdown" value="auto" />
+        <option key="arate" value="Auto" />
+        <option key="gain" value="0" />
+    </options>
+    <parameters>
+        <option key="input" required="true" />
+        <option key="output" required="true" />
+        <option key="srt-file" multivalued="true" separator="," />
+        <option key="audio" multivalued="true" separator="," />
+    </parameters>
+    <preferences>
+        <option key="audio-language" multivalued="true" separator="," value="eng,en,fra,fre,fr" />
+        <option key="audio-codec" multivalued="true" separator="," value="dts-hd,dts,ac3" />
+        <option key="subtitle-language" multivalued="true" separator="," value="fra,fre,fr,eng,en" keepforced="true" />
+        <option key="bpf"><!-- Bits/(pixel*frame) -->
+            <if width="1080" value="0.066" />
+            <if width="720" value="0.082" />
+        </option>
+    </preferences>
+</preset>
