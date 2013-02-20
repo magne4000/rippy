@@ -28,7 +28,7 @@ class Stream:
 
 class AudioStream(Stream):
 
-    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: \w+ \((?P<codec>.*?)\), (?P<frequency>\d+) Hz, (?P<channels>\d(?:\.\d)?).*, .*?, (?P<bitrate>\d+).{1,5}(?: \((?P<default>default)\))?")
+    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, (?P<frequency>\d+) Hz, (?P<channels>\d(?:\.\d)?).*, .*?, (?P<bitrate>\d+).{1,5}(?: \((?P<default>default)\))?")
 
     def parse(self):
         """docstring for parse"""
@@ -50,6 +50,8 @@ class AudioStream(Stream):
         pass
 
 class VideoStream(Stream):
+
+    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, \w+, (?P<width>\d+)x(?P<height>\d+).*, (?P<fps>\d+(?:\.\d+)?) fps,.* tbc(?: \((?P<default>default)\))?")
 
     def getcodec(self):
         pass
