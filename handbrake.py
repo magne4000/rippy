@@ -5,6 +5,7 @@
 
 import re
 from subprocess import Popen, PIPE
+from tools import intduration
 
 class Stream:
     
@@ -65,7 +66,8 @@ class VideoStream(Stream):
             self.fps = results['fps']
             self.codec = results['codec']
             self.position = results['position']
-            self.resolution = (results['width'], results['height'])
+            self.width = results['width']
+            self.height = results['height']
 
 class SubtitleStream(Stream):
 
@@ -86,10 +88,13 @@ class SubtitleStream(Stream):
         return SubtitleStream.positions.index(self.position)
 
 class HandbrakeOutputParser:
+    
+    re_duration = re.compile('Duration: (?P<duration>.*?), .*')
 
     def __init__(self, buf):
         self.buf = buf
         self.streams = {'audio': [], 'video': None, 'subtitle': []}
+        self.duration = None
 
     def parse(self):
         for line in self.buf.split('\n'):
@@ -105,6 +110,10 @@ class HandbrakeOutputParser:
                 stream = SubtitleStream(line)
                 stream.parse()
                 self.streams['subtitle'].append(stream)
+            elif 'Duration: ' in line:
+                matches = HandbrakeOutputParser.re_duration.search(line)
+                if matches is not None:
+                    self.duration = intduration(matches.groupdict()['duration'])
 
     def audio(self):
         return self.streams['audio']
