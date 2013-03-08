@@ -27,9 +27,5 @@
         <option key="audio-language" multivalued="true" separator="," value="eng,en,fra,fre,fr" />
         <option key="audio-codec" multivalued="true" separator="," value="dts-hd,dts,ac3" />
         <option key="subtitle-language" multivalued="true" separator="," value="fra,fre,fr,eng,en" keepforced="true" />
-        <option key="bpf"><!-- Bits/(pixel*frame) -->
-            <if width="1080" value="0.066" />
-            <if width="720" value="0.082" />
-        </option>
     </preferences>
 </preset>

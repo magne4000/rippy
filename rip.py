@@ -9,7 +9,13 @@ The app contains a default preset which allows HandBrakeCli
 to generate lightweight x264 HD Videos (720p/1080p) without quality loss.
 """
 
+from argparse import ArgumentParser
 import xml.etree.ElementTree as ET
+import os.path as path
+from os import walk
+import sys, traceback
+from handbrake import AudioStream, HandbrakeProcess, HandbrakeOutputParser
+from tools import getbitrate
 
 class Parameter:
     def __init__(self, key, required=False, multivalued=False, separator=',', other=None):
@@ -77,18 +83,45 @@ def loadpreset():
         other = {}
         if child.get('keepforced') is not None:
             other['keepforced'] = child.get('keepforced')
-        if child.get('key') == 'bpf':
-            other['bpf'] = {}
-            for subchild in child:
-                other['bpf'][subchild.get('width')] = subchild.get('value')
-        preset.addparameter(Parameter(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator'), other))
+        preset.addpreference(Parameter(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator'), other))
     return preset
 
-def main():
-    preset = loadpreset()
-    for k, v in preset.getoptions():
-        print k, v
+def handle(args, preset):
+    for f in scan(args.files):
+        hp = HandbrakeProcess(f)
+        hp.scan()
+        hop = HandbrakeOutputParser(hp.buf)
+        hop.parse()
+        try:
+            bitrate = getbitrate(hop.video().width, hop.video().height, hop.fps)
+        except:
+            sys.stderr.write(f+'\n')
+            traceback.print_exc(file=sys.stderr)
+        print(f)
+        print(bitrate)
 
+def scan(files):
+    """ TODO
+    Handle Bluray folders
+    """
+    for f in files:
+        absfile = path.abspath(f)
+        if path.isdir(absfile):
+            for root, dirs, files in walk(absfile):
+                for name in files:
+                    if name.rsplit('.', 1)[1].lower() in ['mkv']:
+                        yield path.join(root, name)
+        else:
+            yield d
+
+def main():
+    parser = ArgumentParser(description="Rippy")
+    parser.add_argument("-d", "--dest", dest='dest', help='Folder where ripped files will be stored')
+    parser.add_argument("files", nargs='+', help='List of files or folders that will be ripped recursively')
+    parser.set_defaults(func=handle)
+    preset = loadpreset()
+    args = parser.parse_args()
+    args.func(args, preset)
 
 if __name__ == '__main__':
     main()

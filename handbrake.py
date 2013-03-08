@@ -31,6 +31,7 @@ class Stream:
 class AudioStream(Stream):
 
     re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, (?P<frequency>\d+) Hz, (?P<channels>\d(?:\.\d)?).*, .*?, (?P<bitrate>\d+).{1,5}(?: \((?P<default>default)\))?")
+    re_parse2 = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)")
     positions = []
 
     def parse(self):
@@ -49,13 +50,21 @@ class AudioStream(Stream):
             self.bitrate = results['bitrate']
             AudioStream.positions.append(self.position)
             AudioStream.positions.sort()
+        else:
+            matches = AudioStream.re_parse2.search(self.buf)
+            results = matches.groupdict()
+            self.language = results['language']
+            self.codec = results['codec']
+            self.position = results['position']
+            AudioStream.positions.append(self.position)
+            AudioStream.positions.sort()
 
     def getposition(self):
         return AudioStream.positions.index(self.position)
 
 class VideoStream(Stream):
 
-    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, \w+, (?P<width>\d+)x(?P<height>\d+).*, (?P<fps>\d+(?:\.\d+)?) fps,.* tbc(?: \((?P<default>default)\))?")
+    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, \w+, (?P<width>\d+)x(?P<height>\d+).*, .* tbc(?: \((?P<default>default)\))?")
 
     def parse(self):
         matches = VideoStream.re_parse.search(self.buf)
@@ -63,7 +72,6 @@ class VideoStream(Stream):
             results = matches.groupdict()
             self.language = results['language']
             self.default = True if results['default'] is not None else False
-            self.fps = results['fps']
             self.codec = results['codec']
             self.position = results['position']
             self.width = results['width']
@@ -90,11 +98,13 @@ class SubtitleStream(Stream):
 class HandbrakeOutputParser:
     
     re_duration = re.compile('Duration: (?P<duration>.*?), .*')
+    re_fps = re.compile("\+ size.* (?P<fps>\d+(?:\.\d+)?)")
 
     def __init__(self, buf):
         self.buf = buf
         self.streams = {'audio': [], 'video': None, 'subtitle': []}
         self.duration = None
+        self.fps = None
 
     def parse(self):
         for line in self.buf.split('\n'):
@@ -114,6 +124,10 @@ class HandbrakeOutputParser:
                 matches = HandbrakeOutputParser.re_duration.search(line)
                 if matches is not None:
                     self.duration = intduration(matches.groupdict()['duration'])
+            elif '+ size: ' in line:
+                matches = HandbrakeOutputParser.re_fps.search(line)
+                if matches is not None:
+                    self.fps = matches.groupdict()['fps']
 
     def audio(self):
         return self.streams['audio']
@@ -134,6 +148,9 @@ class HandbrakeProcess:
 
     def scan(self):
         self.buf = self._call([HandbrakeProcess.handbrakecli, "--scan", "--input", self.filepath])
+
+    def rip(self, args):
+        self._call([HandbrakeProcess.handbrakecli, "--input", self.filepath].extends(args))
 
     def _call(self, args):
         child = Popen(args, stderr=PIPE)
