@@ -16,6 +16,8 @@
         <option key="mixdown" value="auto" />
         <option key="arate" value="Auto" />
         <option key="gain" value="0" />
+        <option key="title" value="0" />
+        <option key="min-duration" value="600" />
     </options>
     <parameters>
         <option key="input" required="true" />

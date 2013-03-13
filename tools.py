@@ -11,9 +11,13 @@ def intduration(duration):
     return int(hh) * 3600 + int(mm) * 60 + int(ss)
 
 def getbpf(width, height):
-    # Hacky formula returning bpf
-    t = int(width) * int(height)
-    return round((((1/((t/2073600.0)**0.75))*0.066)/125.0)**0.36, 3)
+    width = int(width)
+    height = int(height)
+    if width == 1920:
+        return 0.076
+    elif width == 1280:
+        return 0.092
+    return None
 
 def getbitrate(width, height, fps):
     """return bitrate computed from width, height, FPS and Bits/(pixel*frame)"""

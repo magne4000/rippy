@@ -48,23 +48,22 @@ class AudioStream(Stream):
             self.frequency = results['frequency']
             self.position = results['position']
             self.bitrate = results['bitrate']
-            AudioStream.positions.append(self.position)
-            AudioStream.positions.sort()
         else:
             matches = AudioStream.re_parse2.search(self.buf)
             results = matches.groupdict()
             self.language = results['language']
             self.codec = results['codec']
             self.position = results['position']
-            AudioStream.positions.append(self.position)
-            AudioStream.positions.sort()
+        AudioStream.positions.append(self.position)
+        AudioStream.positions.sort()
 
     def getposition(self):
         return AudioStream.positions.index(self.position)
 
 class VideoStream(Stream):
 
-    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, \w+, (?P<width>\d+)x(?P<height>\d+).*, .* tbc(?: \((?P<default>default)\))?")
+    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?,.* (?P<width>\d+)x(?P<height>\d+).*, .* tbc(?: \((?P<default>default)\))?")
+    re_parse_fps = re.compile("(\d+(?:\.\d+)) fps")
 
     def parse(self):
         matches = VideoStream.re_parse.search(self.buf)
@@ -76,6 +75,11 @@ class VideoStream(Stream):
             self.position = results['position']
             self.width = results['width']
             self.height = results['height']
+            match_fps = VideoStream.re_parse_fps.search(self.buf)
+            if match_fps is not None:
+                self.fps = match_fps.group(1)
+            else:
+                self.fps = None
 
 class SubtitleStream(Stream):
 
@@ -116,6 +120,8 @@ class HandbrakeOutputParser:
                 stream = VideoStream(line)
                 stream.parse()
                 self.streams['video'] = stream
+                if self.fps is None:
+                    self.fps = stream.fps
             elif 'Subtitle: ' in line:
                 stream = SubtitleStream(line)
                 stream.parse()

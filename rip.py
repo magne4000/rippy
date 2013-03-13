@@ -93,12 +93,14 @@ def handle(args, preset):
         hop = HandbrakeOutputParser(hp.buf)
         hop.parse()
         try:
-            bitrate = getbitrate(hop.video().width, hop.video().height, hop.fps)
+            width = hop.video().width
+            height = hop.video().height
+            bitrate = getbitrate(width, height, hop.fps)
+            print(width, height, bitrate, hop.fps)
         except:
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         print(f)
-        print(bitrate)
 
 def scan(files):
     """ TODO
@@ -112,7 +114,7 @@ def scan(files):
                     if name.rsplit('.', 1)[1].lower() in ['mkv']:
                         yield path.join(root, name)
         else:
-            yield d
+            yield absfile
 
 def main():
     parser = ArgumentParser(description="Rippy")
