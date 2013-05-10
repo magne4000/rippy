@@ -103,16 +103,15 @@ def handle(args, preset):
         print(f)
 
 def scan(files):
-    """ TODO
-    Handle Bluray folders
-    """
     for f in files:
         absfile = path.abspath(f)
         if path.isdir(absfile):
             for root, dirs, files in walk(absfile):
                 for name in files:
-                    if name.rsplit('.', 1)[1].lower() in ['mkv']:
+                    if '.' in name and name.rsplit('.', 1)[1].lower() in ['mkv']:
                         yield path.join(root, name)
+                if 'BDMV' in dirs: # BluRay folder
+                    yield(root)
         else:
             yield absfile
 
