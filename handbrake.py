@@ -20,89 +20,53 @@ class Stream:
     def getlanguage(self):
         pass
 
-    def getposition(self):
-        """Get the position of the stream in the container"""
-        pass
-
     def isdefault(self):
         """docstring for isdefault"""
         pass
 
 class AudioStream(Stream):
 
-    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?, (?P<frequency>\d+) Hz, (?P<channels>\d(?:\.\d)?).*, .*?, (?P<bitrate>\d+).{1,5}(?: \((?P<default>default)\))?")
-    re_parse2 = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)")
-    positions = []
+    re_parse = re.compile("\+\s(?P<position>\d+).*?\((?P<codec>.*?)\)\s\((?P<channels>\d(?:\.\d))\sch\)\s\(.*?\:\s(?P<language>\w+)\),\s(?P<frequency>\d+)Hz,\s(?P<bitrate>\d+)bps")
 
     def parse(self):
         matches = AudioStream.re_parse.search(self.buf)
         if matches is not None:
             results = matches.groupdict()
             self.language = results['language']
-            self.default = True if results['default'] is not None else False
             self.channels = results['channels']
-            if results['codec'] == 'dca': #DTS
-                self.codec = results['codecdetail']
-            else:
-                self.codec = results['codec']
+            self.codec = results['codec']
             self.frequency = results['frequency']
             self.position = results['position']
             self.bitrate = results['bitrate']
-        else:
-            matches = AudioStream.re_parse2.search(self.buf)
-            results = matches.groupdict()
-            self.language = results['language']
-            self.codec = results['codec']
-            self.position = results['position']
-        AudioStream.positions.append(self.position)
-        AudioStream.positions.sort()
-
-    def getposition(self):
-        return AudioStream.positions.index(self.position)
-
+        
 class VideoStream(Stream):
 
-    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?P<codec>\w+)(?: \((?P<codecdetail>.*?)\))?,.* (?P<width>\d+)x(?P<height>\d+).*, .* tbc(?: \((?P<default>default)\))?")
-    re_parse_fps = re.compile("(\d+(?:\.\d+)) fps")
+    re_parse = re.compile("\+ size:\s(?P<width>\d+)x(?P<height>\d+).*?(?P<fps>\d+(?:\.\d+)?) fps")
 
     def parse(self):
         matches = VideoStream.re_parse.search(self.buf)
         if matches is not None:
             results = matches.groupdict()
-            self.language = results['language']
-            self.default = True if results['default'] is not None else False
-            self.codec = results['codec']
-            self.position = results['position']
             self.width = results['width']
             self.height = results['height']
-            match_fps = VideoStream.re_parse_fps.search(self.buf)
-            if match_fps is not None:
-                self.fps = match_fps.group(1)
-            else:
-                self.fps = None
+            self.fps = results['fps']
+            self.ratio = round(float(self.width)/float(self.height))
 
 class SubtitleStream(Stream):
 
-    re_parse = re.compile("Stream #0\.(?P<position>\d)(?:\((?P<language>.{3})\))?: \w+: (?:.*\((?P<forced>forced)\))?")
-    positions = []
+    re_parse = re.compile("\+\s(?P<position>\d+).*?\(.*?\:\s(?P<language>\w+)\).*\((?P<encoding>.+)\)")
 
     def parse(self):
         matches = SubtitleStream.re_parse.search(self.buf)
         if matches is not None:
             results = matches.groupdict()
-            self.forced = True if results['forced'] is not None else False
             self.language = results['language']
             self.position = results['position']
-            SubtitleStream.positions.append(self.position)
-            SubtitleStream.positions.sort()
+            self.encoding = results['encoding']
         
-    def getposition(self):
-        return SubtitleStream.positions.index(self.position)
-
 class HandbrakeOutputParser:
     
     re_duration = re.compile('Duration: (?P<duration>.*?), .*')
-    re_fps = re.compile("\+ size.* (?P<fps>\d+(?:\.\d+)?)")
 
     def __init__(self, buf):
         self.buf = buf
@@ -111,29 +75,32 @@ class HandbrakeOutputParser:
         self.fps = None
 
     def parse(self):
+        block = None
         for line in self.buf.split('\n'):
-            if 'Audio: ' in line:
+            if 'audio tracks:' in line:
+                block = 'Audio'
+            elif 'subtitle tracks:' in line:
+                block = 'Subtitle'
+            elif line.startswith('  +'):
+                block = None
+            if block == 'Audio':
                 stream = AudioStream(line)
                 stream.parse()
                 self.streams['audio'].append(stream)
-            elif 'Video: ' in line:
+            elif block == 'Subtitle':
+                stream = SubtitleStream(line)
+                stream.parse()
+                self.streams['subtitle'].append(stream)
+            elif 'size: ' in line:
                 stream = VideoStream(line)
                 stream.parse()
                 self.streams['video'] = stream
                 if self.fps is None:
                     self.fps = stream.fps
-            elif 'Subtitle: ' in line:
-                stream = SubtitleStream(line)
-                stream.parse()
-                self.streams['subtitle'].append(stream)
-            elif 'Duration: ' in line:
+            elif 'duration: ' in line:
                 matches = HandbrakeOutputParser.re_duration.search(line)
                 if matches is not None:
                     self.duration = intduration(matches.groupdict()['duration'])
-            elif '+ size: ' in line:
-                matches = HandbrakeOutputParser.re_fps.search(line)
-                if matches is not None:
-                    self.fps = matches.groupdict()['fps']
 
     def audio(self):
         return self.streams['audio']
@@ -153,7 +120,7 @@ class HandbrakeProcess:
         self.buf = None
 
     def scan(self):
-        self.buf = self._call([HandbrakeProcess.handbrakecli, "--scan", "--input", self.filepath])
+        self.buf = self._call([HandbrakeProcess.handbrakecli, "--scan", "--title", "0", "--min-duration", "600", "--input", self.filepath])
 
     def rip(self, args):
         self._call([HandbrakeProcess.handbrakecli, "--input", self.filepath].extends(args))
