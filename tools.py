@@ -9,9 +9,8 @@ def intduration(duration):
     hh, mm, ss, = duration.split(':')
     return int(hh) * 3600 + int(mm) * 60 + int(ss)
 
-def getbpf(width, height):
+def getbpf(width):
     width = int(width)
-    height = int(height)
     if width == 1920:
         return 0.076
     elif width == 1280:
@@ -20,7 +19,7 @@ def getbpf(width, height):
 
 def getbitrate(width, height, fps):
     """return bitrate computed from width, height, FPS and Bits/(pixel*frame)"""
-    bpf = getbpf(width, height)
+    bpf = getbpf(width)
     if bpf is None:
         return None
     # Bits/Frame (bpf * width * height)

@@ -15,20 +15,27 @@ import os.path as path
 from os import walk
 import sys, traceback
 from handbrake import AudioStream, HandbrakeProcess, HandbrakeOutputParser
+from threading import Thread
 from tools import getbitrate
+from Queue import Queue, Empty
+from ask.ask import Ask
+from ask.question import Choices, YesNo, Text, Path
 
 class Parameter:
-    def __init__(self, key, required=False, multivalued=False, separator=',', other=None):
+    def __init__(self, key, required=False, multivalued=False, separator=','):
         self.key = key
         self.required = required
         self.multivalued = multivalued
         self.separator = separator 
-        self.other = other
-        self.value = None
+
+class Preference(Parameter):
+    def __init__(self, key, required=False, multivalued=False, separator=',', value=None):
+        Parameter.__init__(self, key, required, multivalued, separator)
+        self.value = value
 
     def getvalue(self):
-        if self.multivalued:
-            self.separator.join(self.value)
+        if self.multivalued and self.value is not None:
+           return self.value.split(self.separator)
         return self.value
 
 class Option:
@@ -58,7 +65,7 @@ class Preset:
         self.parameters.append(param)
 
     def addpreference(self, pref):
-        self.preferences[pref.key] = pref
+        self.preferences[pref.key] = pref.getvalue()
 
     def getparameters(self):
         for p in self.parameters:
@@ -71,6 +78,50 @@ class Preset:
     def getpreference(self, key):
         return self.preferences[key]
 
+class Worker:
+
+    questions_queue = Queue()
+    rip_queue = Queue()
+    finished = False
+
+    @staticmethod
+    def q_worker():
+        while not Worker.finished:
+            try:
+                q = Worker.questions_queue.get(True, 3)
+                q.ask()
+                Worker.questions_queue.task_done()
+            except Empty:
+                print("Empty q")
+
+    @staticmethod
+    def rip_worker():
+        while not Worker.finished:
+            try:
+                task = Worker.rip_queue.get(True, 3)
+                task.rip()
+                Worker.rip_queue.task_done()
+            except Empty:
+                print("Empty rip")
+
+    @staticmethod
+    def launch():
+        t_rip = Thread(target=Worker.rip_worker)
+        t_rip.start()
+        t_q = Thread(target=Worker.q_worker)
+        t_q.start()
+
+    @staticmethod
+    def setfinished(b):
+        Worker.finished = b
+
+class Q:
+
+    ask_srt_yn = YesNo('Would you like to add a subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
+    ask_srt_yn_bis = YesNo('Would you like to add another subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
+    ask_srt = Path('Path of subtitles file :')
+    ask_bpf = Text('Bits*(pixels/frame) can\'t be calculated, please choose a value manually :')
+
 def loadpreset():
     preset = Preset()
     tree = ET.parse('presets/default.xml')
@@ -80,18 +131,20 @@ def loadpreset():
     for child in root.findall('parameters/option'):
         preset.addparameter(Parameter(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator')))
     for child in root.findall('preferences/option'):
-        other = {}
+        '''other = {}
         if child.get('keepforced') is not None:
-            other['keepforced'] = child.get('keepforced')
-        preset.addpreference(Parameter(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator'), other))
+            other['keepforced'] = child.get('keepforced')'''
+        preset.addpreference(Preference(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator'), child.get('value')))
     return preset
 
 def handle(args, preset):
+    Worker.launch()
     for f in scan(args.files):
         hp = HandbrakeProcess(f)
         hp.scan()
         hop = HandbrakeOutputParser(hp.buf)
         hop.parse()
+        handle_ask(hop, preset)
         try:
             width = hop.video().width
             height = hop.video().height
@@ -101,6 +154,14 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         print(f)
+        handle_rip(hop)
+    Worker.setfinished(True)
+
+def handle_ask(hop, preset):
+    print(preset.getpreference('audio-language'))
+
+def handle_rip(hop):
+    pass
 
 def scan(files):
     for f in files:

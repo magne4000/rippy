@@ -16,8 +16,6 @@
         <option key="mixdown" value="auto" />
         <option key="arate" value="Auto" />
         <option key="gain" value="0" />
-        <option key="title" value="0" />
-        <option key="min-duration" value="600" />
     </options>
     <parameters>
         <option key="input" required="true" />
@@ -26,8 +24,9 @@
         <option key="audio" multivalued="true" separator="," />
     </parameters>
     <preferences>
-        <option key="audio-language" multivalued="true" separator="," value="eng,en,fra,fre,fr" />
+        <!-- languages must be written following iso639-2 codes -->
+        <option key="audio-language" multivalued="true" separator="," value="eng,fra" />
         <option key="audio-codec" multivalued="true" separator="," value="dts-hd,dts,ac3" />
-        <option key="subtitle-language" multivalued="true" separator="," value="fra,fre,fr,eng,en" keepforced="true" />
+        <option key="subtitle-language" multivalued="true" separator="," value="fra,eng" keepforced="true" />
     </preferences>
 </preset>

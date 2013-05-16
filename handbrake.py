@@ -5,6 +5,7 @@
 
 import re
 from subprocess import Popen, PIPE
+from threading import Thread
 from tools import intduration
 
 class Stream:
@@ -129,3 +130,4 @@ class HandbrakeProcess:
         child = Popen(args, stderr=PIPE)
         child.wait()
         return child.stderr.read()
+
