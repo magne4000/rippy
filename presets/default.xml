@@ -17,12 +17,6 @@
         <option key="arate" value="Auto" />
         <option key="gain" value="0" />
     </options>
-    <parameters>
-        <option key="input" required="true" />
-        <option key="output" required="true" />
-        <option key="srt-file" multivalued="true" separator="," />
-        <option key="audio" multivalued="true" separator="," />
-    </parameters>
     <preferences>
         <!-- languages must be written following iso639-2 codes -->
         <option key="audio-language" multivalued="true" separator="," value="eng,fra" />

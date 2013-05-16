@@ -20,17 +20,14 @@ from tools import getbitrate
 from Queue import Queue, Empty
 from ask.ask import Ask
 from ask.question import Choices, YesNo, Text, Path
+from tools import getbpf
 
-class Parameter:
-    def __init__(self, key, required=False, multivalued=False, separator=','):
+class Preference:
+    def __init__(self, key, required=False, multivalued=False, separator=',', value=None):
         self.key = key
         self.required = required
         self.multivalued = multivalued
         self.separator = separator 
-
-class Preference(Parameter):
-    def __init__(self, key, required=False, multivalued=False, separator=',', value=None):
-        Parameter.__init__(self, key, required, multivalued, separator)
         self.value = value
 
     def getvalue(self):
@@ -55,22 +52,14 @@ class Option:
 class Preset:
     def __init__(self):
         self.options = []
-        self.parameters = []
         self.preferences = {}
 
     def addoption(self, opt):
         self.options.append(opt)
     
-    def addparameter(self, param):
-        self.parameters.append(param)
-
     def addpreference(self, pref):
         self.preferences[pref.key] = pref.getvalue()
 
-    def getparameters(self):
-        for p in self.parameters:
-            yield p.key, p.getvalue()
-    
     def getoptions(self):
         for o in self.options:
             yield o.key, o.getvalue()
@@ -92,7 +81,7 @@ class Worker:
                 q.ask()
                 Worker.questions_queue.task_done()
             except Empty:
-                print("Empty q")
+                pass
 
     @staticmethod
     def rip_worker():
@@ -102,7 +91,7 @@ class Worker:
                 task.rip()
                 Worker.rip_queue.task_done()
             except Empty:
-                print("Empty rip")
+                pass
 
     @staticmethod
     def launch():
@@ -116,11 +105,16 @@ class Worker:
         Worker.finished = b
 
 class Q:
-
     ask_srt_yn = YesNo('Would you like to add a subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
     ask_srt_yn_bis = YesNo('Would you like to add another subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
     ask_srt = Path('Path of subtitles file :')
     ask_bpf = Text('Bits*(pixels/frame) can\'t be calculated, please choose a value manually :')
+
+class Answers:
+
+    def __init__(self):
+        self.subtitles_path = []
+        self.bpf = None
 
 def loadpreset():
     preset = Preset()
@@ -128,8 +122,6 @@ def loadpreset():
     root = tree.getroot()
     for child in root.findall('options/option'):
         preset.addoption(Option(child.get('key'), child.get('value'), child.get('handler')))
-    for child in root.findall('parameters/option'):
-        preset.addparameter(Parameter(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator')))
     for child in root.findall('preferences/option'):
         '''other = {}
         if child.get('keepforced') is not None:
@@ -144,7 +136,7 @@ def handle(args, preset):
         hp.scan()
         hop = HandbrakeOutputParser(hp.buf)
         hop.parse()
-        handle_ask(hop, preset)
+        answers = handle_ask(hop, preset)
         try:
             width = hop.video().width
             height = hop.video().height
@@ -154,14 +146,64 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         print(f)
-        handle_rip(hop)
+        handle_rip(f, hop, preset, answers)
     Worker.setfinished(True)
 
 def handle_ask(hop, preset):
-    print(preset.getpreference('audio-language'))
+    answers = Answers()
+    ''' subtitles '''
+    prefered_sub = preset.getpreference('subtitle-language')
+    prefered_sub_present = prefered_sub[0] in [sub.language for sub in hop.subtitle()]
+    if not prefered_sub_present:
+        a = Ask()
+        answer = a.ask(Q.ask_srt_yn)
+        while answer:
+            answers.subtitles_path.append(answer)
+            answer = a.ask(Q.ask_srt_yn_bis)
+    ''' bpf '''
+    if getbpf(hop.video().width) is None:
+        a = Ask()
+        answers.bpf = a.ask(Q.ask_bpf)
+    return answers
 
-def handle_rip(hop):
-    pass
+def handle_rip(filepath, hop, preset, answers):
+    prefered_audio = preset.getpreference('audio-language')
+    prefered_codec = preset.getpreference('audio-codec')
+    prefered_sub = preset.getpreference('subtitle-language')
+    audio_streams = {}
+    subtitle_streams = []
+    proc = HandbrakeProcess(filepath)
+    
+    def getindex(elt, elts):
+        i = 0
+        for c in elts:
+            if elt.lower().startswith(c.lower()):
+                return i
+            i += 1
+        return None
+    
+    ''' audio '''
+    for audio in hop.audio():
+        if audio.language.lower() in prefered_audio:
+            if audio.language in audio_streams:
+                for codec in prefered_codec:
+                    if getindex(codec, prefered_codec) < getindex(audio_streams[audio.language].codec, prefered_codec):
+                        audio_streams[audio.language] = audio
+            else:
+                audio_streams[audio.language] = audio
+    ''' subtitles '''
+    for sub in hop.subtitle():
+        if sub.language in prefered_sub:
+            subtitle_streams.append(sub)
+    
+    bitrate = getbitrate(hop.video().width, hop.video().height, hop.video().fps, answers.bpf)
+    proc.setaudio([audio.position for audio in audio_streams.values()])
+    proc.setsubtitle([sub.position for sub in subtitle_streams])
+    proc.setsrtfile(answers.subtitles_path)
+    proc.setoutput(filepath + '.new') #TODO
+    proc.setbitrate(bitrate)
+    print(proc.args)
+
 
 def scan(files):
     for f in files:

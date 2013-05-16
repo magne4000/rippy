@@ -27,7 +27,7 @@ class Stream:
 
 class AudioStream(Stream):
 
-    re_parse = re.compile("\+\s(?P<position>\d+).*?\((?P<codec>.*?)\)\s\((?P<channels>\d(?:\.\d))\sch\)\s\(.*?\:\s(?P<language>\w+)\),\s(?P<frequency>\d+)Hz,\s(?P<bitrate>\d+)bps")
+    re_parse = re.compile("\+\s(?P<position>\d+).*?\((?P<codec>.*?)\)\s\((?P<channels>\d(?:\.\d))\sch\)\s\(.*?\:\s(?P<language>\w+)\)(:?,\s(?P<frequency>\d+)Hz,\s(?P<bitrate>\d+)bps)?")
 
     def parse(self):
         matches = AudioStream.re_parse.search(self.buf)
@@ -39,6 +39,8 @@ class AudioStream(Stream):
             self.frequency = results['frequency']
             self.position = results['position']
             self.bitrate = results['bitrate']
+            return True
+        return False
         
 class VideoStream(Stream):
 
@@ -52,6 +54,8 @@ class VideoStream(Stream):
             self.height = results['height']
             self.fps = results['fps']
             self.ratio = round(float(self.width)/float(self.height))
+            return True
+        return False
 
 class SubtitleStream(Stream):
 
@@ -64,6 +68,8 @@ class SubtitleStream(Stream):
             self.language = results['language']
             self.position = results['position']
             self.encoding = results['encoding']
+            return True
+        return False
         
 class HandbrakeOutputParser:
     
@@ -86,18 +92,18 @@ class HandbrakeOutputParser:
                 block = None
             if block == 'Audio':
                 stream = AudioStream(line)
-                stream.parse()
-                self.streams['audio'].append(stream)
+                if stream.parse():
+                    self.streams['audio'].append(stream)
             elif block == 'Subtitle':
                 stream = SubtitleStream(line)
-                stream.parse()
-                self.streams['subtitle'].append(stream)
+                if stream.parse():
+                    self.streams['subtitle'].append(stream)
             elif 'size: ' in line:
                 stream = VideoStream(line)
-                stream.parse()
-                self.streams['video'] = stream
-                if self.fps is None:
-                    self.fps = stream.fps
+                if stream.parse():
+                    self.streams['video'] = stream
+                    if self.fps is None:
+                        self.fps = stream.fps
             elif 'duration: ' in line:
                 matches = HandbrakeOutputParser.re_duration.search(line)
                 if matches is not None:
@@ -119,12 +125,48 @@ class HandbrakeProcess:
     def __init__(self, filepath):
         self.filepath = filepath
         self.buf = None
+        self.args = {
+            'audio': None, # Multivalued, separated by comma
+            'subtitle': None, # Multivalued, separated by comma
+            'srt-file': None, # Multivalued, separated by comma
+            'output': None, 
+            'bitrate': None,
+            'input': self.filepath 
+        }
+
+    def setaudio(self, l):
+        if l is not None:
+            self.args['audio'] = ','.join(l)
+    
+    def setsubtitle(self, l):
+        if l is not None:
+            self.args['subtitle'] = ','.join(l)
+
+    def setsrtfile(self, l):
+        if l is not None:
+            self.args['srt-file'] = ','.join(l)
+
+    def setoutput(self, o):
+        if o is not None:
+            self.args['output'] = o
+    
+    def setbitrate(self, b):
+        if b is not None:
+            self.args['bitrate'] = b
+
+    def _getargs(self):
+        arr = []
+        for k, v in self.args.items():
+            if v is not None and len(v) > 0:
+                arr.append("--"+k)
+                arr.append(v)
+        return arr
 
     def scan(self):
         self.buf = self._call([HandbrakeProcess.handbrakecli, "--scan", "--title", "0", "--min-duration", "600", "--input", self.filepath])
 
-    def rip(self, args):
-        self._call([HandbrakeProcess.handbrakecli, "--input", self.filepath].extends(args))
+    def rip(self):
+        self._call([HandbrakeProcess.handbrakecli].extends(self._getargs()))
 
     def _call(self, args):
         child = Popen(args, stderr=PIPE)

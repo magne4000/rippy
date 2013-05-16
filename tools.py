@@ -17,9 +17,10 @@ def getbpf(width):
         return 0.092
     return None
 
-def getbitrate(width, height, fps):
+def getbitrate(width, height, fps, bpf=None):
     """return bitrate computed from width, height, FPS and Bits/(pixel*frame)"""
-    bpf = getbpf(width)
+    if bpf is None:
+        bpf = getbpf(width)
     if bpf is None:
         return None
     # Bits/Frame (bpf * width * height)
