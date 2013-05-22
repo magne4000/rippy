@@ -78,7 +78,7 @@ class Worker:
         while not Worker.finished:
             try:
                 q = Worker.questions_queue.get(True, 3)
-                handle_ask(q['f'], q['hop'], q['preset'])
+                handle_ask(q['f'], q['dest'], q['hop'], q['preset'])
                 Worker.questions_queue.task_done()
             except Empty:
                 pass
@@ -145,11 +145,11 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         print(f)
-        Worker.questions_queue.put({'f': f, 'hop': hop, 'preset': preset})
+        Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset})
     Worker.rip_queue.join()
     Worker.setfinished(True)
 
-def handle_ask(f, hop, preset):
+def handle_ask(f, dest, hop, preset):
     answers = Answers()
     ''' subtitles '''
     prefered_sub = preset.getpreference('subtitle-language')
@@ -164,9 +164,19 @@ def handle_ask(f, hop, preset):
     if getbpf(hop.video().width) is None:
         a = Ask()
         answers.bpf = a.ask(Q.ask_bpf)
-    handle_rip(f, hop, preset, answers)
+    handle_rip(f, dest, hop, preset, answers)
 
-def handle_rip(filepath, hop, preset, answers=None):
+def getnewfilepath(dest, filepath):
+    if dest is None:
+        dest = path.join(path.dirname(filepath), 'NEW')
+    filename = path.basename(filepath)
+    if '.' in filename and filename.rsplit('.', 1)[1].lower() in ['mkv']:
+        return path.join(dest, filename)
+    else: #BluRay folder
+        filename = path.basename(path.dirname(filepath))
+        return path.join(dest, filename+'.mkv')
+
+def handle_rip(filepath, dest, hop, preset, answers=None):
     prefered_audio = preset.getpreference('audio-language')
     prefered_codec = preset.getpreference('audio-codec')
     prefered_sub = preset.getpreference('subtitle-language')
@@ -202,7 +212,7 @@ def handle_rip(filepath, hop, preset, answers=None):
     proc.setsubtitle([sub.position for sub in subtitle_streams])
     if answers is not None:
         proc.setsrtfile(answers.subtitles_path)
-    proc.setoutput(filepath + '.new.mkv') #TODO
+    proc.setoutput(getnewfilepath(dest, filepath))
     proc.setbitrate(bitrate)
     proc.settitle(hop.title)
     for k, v in preset.getoptions():

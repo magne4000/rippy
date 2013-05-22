@@ -193,7 +193,7 @@ class HandbrakeProcess:
         arr = list(HandbrakeProcess.default_args)
         arr.extend(self._getargs())
         print(arr)
-        #print(self._call(arr))
+        print(self._call(arr))
 
     def _call(self, args):
         child = Popen(args, stderr=PIPE)
