@@ -146,7 +146,9 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         print(f)
+        #TODO bouger autre part (a gérer par ask)
         handle_rip(f, hop, preset, answers)
+    Worker.rip_queue.join()
     Worker.setfinished(True)
 
 def handle_ask(hop, preset):
@@ -200,9 +202,10 @@ def handle_rip(filepath, hop, preset, answers):
     proc.setaudio([audio.position for audio in audio_streams.values()])
     proc.setsubtitle([sub.position for sub in subtitle_streams])
     proc.setsrtfile(answers.subtitles_path)
-    proc.setoutput(filepath + '.new') #TODO
+    proc.setoutput(filepath + '.new.mkv') #TODO
     proc.setbitrate(bitrate)
-    print(proc.args)
+    proc.settitle(hop.title)
+    Worker.rip_queue.put(proc)
 
 
 def scan(files):

@@ -74,12 +74,14 @@ class SubtitleStream(Stream):
 class HandbrakeOutputParser:
     
     re_duration = re.compile('Duration: (?P<duration>.*?), .*')
+    re_title = re.compile("\+ title (\d+)")
 
     def __init__(self, buf):
         self.buf = buf
         self.streams = {'audio': [], 'video': None, 'subtitle': []}
         self.duration = None
         self.fps = None
+        self.title = None
 
     def parse(self):
         block = None
@@ -108,6 +110,11 @@ class HandbrakeOutputParser:
                 matches = HandbrakeOutputParser.re_duration.search(line)
                 if matches is not None:
                     self.duration = intduration(matches.groupdict()['duration'])
+            elif line.startswith('+ title'):
+                matches = HandbrakeOutputParser.re_title.search(line)
+                if matches is not None:
+                    self.title = matches.group(1)
+
 
     def audio(self):
         return self.streams['audio']
@@ -121,6 +128,7 @@ class HandbrakeOutputParser:
 class HandbrakeProcess:
 
     handbrakecli = "/usr/bin/HandBrakeCLI"
+    default_args = [handbrakecli]
 
     def __init__(self, filepath):
         self.filepath = filepath
@@ -130,7 +138,8 @@ class HandbrakeProcess:
             'subtitle': None, # Multivalued, separated by comma
             'srt-file': None, # Multivalued, separated by comma
             'output': None, 
-            'bitrate': None,
+            'vb': None,
+            'title': None,
             'input': self.filepath 
         }
 
@@ -152,21 +161,30 @@ class HandbrakeProcess:
     
     def setbitrate(self, b):
         if b is not None:
-            self.args['bitrate'] = b
+            self.args['vb'] = b
+
+    def settitle(self, t):
+        if t is not None:
+            self.args['title'] = t
 
     def _getargs(self):
         arr = []
         for k, v in self.args.items():
-            if v is not None and len(v) > 0:
+            if v is not None and len(str(v)) > 0:
                 arr.append("--"+k)
-                arr.append(v)
+                arr.append(str(v))
         return arr
 
     def scan(self):
-        self.buf = self._call([HandbrakeProcess.handbrakecli, "--scan", "--title", "0", "--min-duration", "600", "--input", self.filepath])
+        arr = list(HandbrakeProcess.default_args)
+        arr.extend(["--scan", "--title", "0", "--min-duration", "600", "--input", self.filepath])
+        self.buf = self._call(arr)
 
     def rip(self):
-        self._call([HandbrakeProcess.handbrakecli].extends(self._getargs()))
+        arr = list(HandbrakeProcess.default_args)
+        arr.extend(self._getargs())
+        print(arr)
+        #print(self._call(arr))
 
     def _call(self, args):
         child = Popen(args, stderr=PIPE)
