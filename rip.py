@@ -78,7 +78,7 @@ class Worker:
         while not Worker.finished:
             try:
                 q = Worker.questions_queue.get(True, 3)
-                q.ask()
+                handle_ask(q['f'], q['hop'], q['preset'])
                 Worker.questions_queue.task_done()
             except Empty:
                 pass
@@ -136,7 +136,6 @@ def handle(args, preset):
         hp.scan()
         hop = HandbrakeOutputParser(hp.buf)
         hop.parse()
-        answers = handle_ask(hop, preset)
         try:
             width = hop.video().width
             height = hop.video().height
@@ -146,12 +145,11 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         print(f)
-        #TODO bouger autre part (a gérer par ask)
-        handle_rip(f, hop, preset, answers)
+        Worker.questions_queue.put({'f': f, 'hop': hop, 'preset': preset})
     Worker.rip_queue.join()
     Worker.setfinished(True)
 
-def handle_ask(hop, preset):
+def handle_ask(f, hop, preset):
     answers = Answers()
     ''' subtitles '''
     prefered_sub = preset.getpreference('subtitle-language')
@@ -166,14 +164,15 @@ def handle_ask(hop, preset):
     if getbpf(hop.video().width) is None:
         a = Ask()
         answers.bpf = a.ask(Q.ask_bpf)
-    return answers
+    handle_rip(f, hop, preset, answers)
 
-def handle_rip(filepath, hop, preset, answers):
+def handle_rip(filepath, hop, preset, answers=None):
     prefered_audio = preset.getpreference('audio-language')
     prefered_codec = preset.getpreference('audio-codec')
     prefered_sub = preset.getpreference('subtitle-language')
     audio_streams = {}
     subtitle_streams = []
+    bpf = answers.bpf if answers is not None else None
     proc = HandbrakeProcess(filepath)
     
     def getindex(elt, elts):
@@ -198,13 +197,16 @@ def handle_rip(filepath, hop, preset, answers):
         if sub.language in prefered_sub:
             subtitle_streams.append(sub)
     
-    bitrate = getbitrate(hop.video().width, hop.video().height, hop.video().fps, answers.bpf)
+    bitrate = getbitrate(hop.video().width, hop.video().height, hop.video().fps, bpf)
     proc.setaudio([audio.position for audio in audio_streams.values()])
     proc.setsubtitle([sub.position for sub in subtitle_streams])
-    proc.setsrtfile(answers.subtitles_path)
+    if answers is not None:
+        proc.setsrtfile(answers.subtitles_path)
     proc.setoutput(filepath + '.new.mkv') #TODO
     proc.setbitrate(bitrate)
     proc.settitle(hop.title)
+    for k, v in preset.getoptions():
+        proc.setoption(k, v)
     Worker.rip_queue.put(proc)
 
 

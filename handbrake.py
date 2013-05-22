@@ -129,6 +129,7 @@ class HandbrakeProcess:
 
     handbrakecli = "/usr/bin/HandBrakeCLI"
     default_args = [handbrakecli]
+    NO_VALUE = -1
 
     def __init__(self, filepath):
         self.filepath = filepath
@@ -142,6 +143,13 @@ class HandbrakeProcess:
             'title': None,
             'input': self.filepath 
         }
+
+    def setoption(self, k, v):
+        if k is not None:
+            if v is None:
+                self.args[k] = HandbrakeProcess.NO_VALUE
+            else:
+                self.args[k] = v
 
     def setaudio(self, l):
         if l is not None:
@@ -172,7 +180,8 @@ class HandbrakeProcess:
         for k, v in self.args.items():
             if v is not None and len(str(v)) > 0:
                 arr.append("--"+k)
-                arr.append(str(v))
+                if v != HandbrakeProcess.NO_VALUE:
+                    arr.append(str(v))
         return arr
 
     def scan(self):
