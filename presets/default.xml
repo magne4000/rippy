@@ -20,7 +20,7 @@
     <preferences>
         <!-- languages must be written following iso639-2 codes -->
         <option key="audio-language" multivalued="true" separator="," value="eng,fra" />
-        <option key="audio-codec" multivalued="true" separator="," value="dts-hd,dts,ac3" />
+        <option key="audio-codec" multivalued="true" separator="," value="dts,dts-hd,ac3" />
         <option key="subtitle-language" multivalued="true" separator="," value="fra,eng" keepforced="true" />
     </preferences>
 </preset>

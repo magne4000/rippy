@@ -187,11 +187,14 @@ def handle_rip(filepath, dest, hop, preset, answers=None):
     
     def getindex(elt, elts):
         i = 0
+        ret = None
         for c in elts:
-            if elt.lower().startswith(c.lower()):
+            if elt.lower() == c.lower():
                 return i
+            elif elt.lower().startswith(c.lower()):
+                ret = i
             i += 1
-        return None
+        return ret
     
     ''' audio '''
     for audio in hop.audio():
