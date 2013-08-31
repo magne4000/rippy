@@ -118,7 +118,7 @@ class Answers:
 
 def loadpreset():
     preset = Preset()
-    tree = ET.parse('presets/default.xml')
+    tree = ET.parse(path.join(path.dirname(__file__), 'presets/default.xml'))
     root = tree.getroot()
     for child in root.findall('options/option'):
         preset.addoption(Option(child.get('key'), child.get('value'), child.get('handler')))
