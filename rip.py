@@ -140,11 +140,9 @@ def handle(args, preset):
             width = hop.video().width
             height = hop.video().height
             bitrate = getbitrate(width, height, hop.fps)
-            print(width, height, bitrate, hop.fps)
         except:
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
-        print(f)
         Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset})
     Worker.rip_queue.join()
     Worker.setfinished(True)
@@ -232,6 +230,8 @@ def scan(files):
                     if '.' in name and name.rsplit('.', 1)[1].lower() in ['mkv']:
                         yield path.join(root, name)
                 if 'BDMV' in dirs: # BluRay folder
+                    yield(root)
+                if 'VIDEO_TS.BUP' in files: # DVD folder
                     yield(root)
         else:
             yield absfile
