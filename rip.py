@@ -23,6 +23,11 @@ from ask.question import Choices, YesNo, Text, Path
 from tools import getbpf
 
 class Preference:
+    """
+    A Preference object stores parsed preferences from xml preset file.
+    Those preferences define for example which language (audio and srt) you want to keep
+    in the resulting video file.
+    """
     def __init__(self, key, required=False, multivalued=False, separator=',', value=None):
         self.key = key
         self.required = required
@@ -36,6 +41,10 @@ class Preference:
         return self.value
 
 class Option:
+    """
+    An Option object stores options from xml preset file.
+    Options are parameters passed to HandbrakeCLI.
+    """
     def __init__(self, key, value=None, handler=None):
         self.key = key
         self.value = value
@@ -50,6 +59,9 @@ class Option:
         return self.value
 
 class Preset:
+    """
+    Represents preset.xml as an object
+    """
     def __init__(self):
         self.options = []
         self.preferences = {}
@@ -105,13 +117,18 @@ class Worker:
         Worker.finished = b
 
 class Q:
+    """
+    This class stores all questions that the app can ask.
+    """
     ask_srt_yn = YesNo('Would you like to add a subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
     ask_srt_yn_bis = YesNo('Would you like to add another subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
     ask_srt = Path('Path of subtitles file :')
     ask_bpf = Text('Bits*(pixels/frame) can\'t be calculated, please choose a value manually :')
 
 class Answers:
-
+    """
+    Stores answer to the questions ask to the user.
+    """
     def __init__(self):
         self.subtitles_path = []
         self.bpf = None
@@ -130,6 +147,9 @@ def loadpreset():
     return preset
 
 def handle(args, preset):
+    """
+    Called by main
+    """
     Worker.launch()
     for f in scan(args.files):
         hp = HandbrakeProcess(f)
@@ -148,6 +168,10 @@ def handle(args, preset):
     Worker.setfinished(True)
 
 def handle_ask(f, dest, hop, preset):
+    """
+    Handles question asking and answering.
+    All questions are queued and asked one at a time.
+    """
     answers = Answers()
     ''' subtitles '''
     prefered_sub = preset.getpreference('subtitle-language')
@@ -165,6 +189,9 @@ def handle_ask(f, dest, hop, preset):
     handle_rip(f, dest, hop, preset, answers)
 
 def getnewfilepath(dest, filepath):
+    """
+    Compute the new path for current file
+    """
     if dest is None:
         dest = path.join(path.dirname(filepath), 'NEW')
     filename = path.basename(filepath)
@@ -175,6 +202,9 @@ def getnewfilepath(dest, filepath):
         return path.join(dest, filename+'.mkv')
 
 def handle_rip(filepath, dest, hop, preset, answers=None):
+    """
+    Handles ripping with HandbrakeCLI with the help of a queue.
+    """
     prefered_audio = preset.getpreference('audio-language')
     prefered_codec = preset.getpreference('audio-codec')
     prefered_sub = preset.getpreference('subtitle-language')
@@ -222,6 +252,9 @@ def handle_rip(filepath, dest, hop, preset, answers=None):
 
 
 def scan(files):
+    """
+    Yields all files to be ripped !
+    """
     for f in files:
         absfile = path.abspath(f)
         if path.isdir(absfile):

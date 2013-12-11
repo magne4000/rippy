@@ -3,6 +3,19 @@
 # vim:fenc=utf-8
 #
 # Distributed under terms of the MIT license.
+import fcntl
+import os
+import sys
+
+def non_block_read(output):
+    """read output (stdout or stderr), non-blocking way"""
+    fd = output.fileno()
+    fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+    fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+    try:
+        return output.read()
+    except:
+        return ''
 
 def intduration(duration):
     """convert hh:mm:ss to integer"""
@@ -10,6 +23,7 @@ def intduration(duration):
     return int(hh) * 3600 + int(mm) * 60 + int(ss)
 
 def getbpf(width):
+    """get bits/(pixels*frame) from video width"""
     width = int(width)
     if width == 1920:
         return 0.076

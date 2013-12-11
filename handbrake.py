@@ -4,12 +4,17 @@
 # Distributed under terms of the MIT license.
 
 import re
+import time
+import sys
 from subprocess import Popen, PIPE
 from threading import Thread
-from tools import intduration
+from tools import intduration, non_block_read
+from ask.ask import Ask
 
 class Stream:
-    
+    """
+    Abstract class representing a video-file stream
+    """
     def __init__(self, buf):
         self.buf = buf
         self.parse()
@@ -26,7 +31,9 @@ class Stream:
         pass
 
 class AudioStream(Stream):
-
+    """
+    An audio stream representation
+    """
     re_parse = re.compile("\+\s(?P<position>\d+).*?\((?P<codec>.*?)\)\s\((?P<channels>\d(?:\.\d))\sch\)\s\(.*?\:\s(?P<language>\w+)\)(:?,\s(?P<frequency>\d+)Hz,\s(?P<bitrate>\d+)bps)?")
 
     def parse(self):
@@ -43,7 +50,9 @@ class AudioStream(Stream):
         return False
         
 class VideoStream(Stream):
-
+    """
+    A video stream representation
+    """
     re_parse = re.compile("\+ size:\s(?P<width>\d+)x(?P<height>\d+).*?(?P<fps>\d+(?:\.\d+)?) fps")
 
     def parse(self):
@@ -58,7 +67,9 @@ class VideoStream(Stream):
         return False
 
 class SubtitleStream(Stream):
-
+    """
+    A subtitle stream representation
+    """
     re_parse = re.compile("\+\s(?P<position>\d+).*?\(.*?\:\s(?P<language>\w+)\).*\((?P<encoding>.+)\)")
 
     def parse(self):
@@ -72,7 +83,9 @@ class SubtitleStream(Stream):
         return False
         
 class HandbrakeOutputParser:
-    
+    """
+    Parse the output of HanbrakeCLI
+    """
     re_duration = re.compile('Duration: (?P<duration>.*?), .*')
     re_title = re.compile("\+ title (\d+)")
 
@@ -126,6 +139,9 @@ class HandbrakeOutputParser:
         return self.streams['subtitle']
 
 class HandbrakeProcess:
+    """
+    Handles HanbrakeCLI process
+    """
 
     handbrakecli = "/usr/bin/HandBrakeCLI"
     default_args = [handbrakecli]
@@ -184,6 +200,15 @@ class HandbrakeProcess:
                     arr.append(str(v))
         return arr
 
+    def _ripbuf(self, stdout):
+        while True:
+            # Progress output eg. "Encoding: task 1 of 2, 0.01 %"
+            output = non_block_read(stdout).strip()
+            if (output):
+                Ask._print(output, True)
+            time.sleep(1)
+
+
     def scan(self):
         arr = list(HandbrakeProcess.default_args)
         arr.extend(["--scan", "--title", "0", "--min-duration", "600", "--input", self.filepath])
@@ -192,11 +217,23 @@ class HandbrakeProcess:
     def rip(self):
         arr = list(HandbrakeProcess.default_args)
         arr.extend(self._getargs())
-        print(arr)
-        print(self._call(arr))
+        self._call(arr, handle_stdout=self._ripbuf)
 
-    def _call(self, args):
-        child = Popen(args, stderr=PIPE)
+    def _call(self, args, handle_stdout=None, handle_stderr=None):
+        child = Popen(args, stderr=PIPE, stdout=PIPE)
+        threads = []
+        if handle_stdout is not None:
+            t = Thread(target=handle_stdout, args=[child.stdout])
+            threads.append(t)
+            t.daemon = True
+            t.start()
+        if handle_stderr is not None:
+            t = Thread(target=handle_stderr, args=[child.stderr])
+            threads.append(t)
+            t.daemon = True
+            t.start()
         child.wait()
+        for t in threads:
+            t.join(timeout=1)
         return child.stderr.read()
 
