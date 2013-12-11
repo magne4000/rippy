@@ -6,6 +6,7 @@
 import re
 import time
 import sys
+from os import path
 from subprocess import Popen, PIPE
 from threading import Thread
 from tools import intduration, non_block_read
@@ -149,6 +150,7 @@ class HandbrakeProcess:
 
     def __init__(self, filepath):
         self.filepath = filepath
+        self.filename = path.basename(filepath)
         self.buf = None
         self.args = {
             'audio': None, # Multivalued, separated by comma
@@ -205,9 +207,8 @@ class HandbrakeProcess:
             # Progress output eg. "Encoding: task 1 of 2, 0.01 %"
             output = non_block_read(stdout).strip()
             if (output):
-                Ask._print(output, True)
+                Ask._print(self.filename + ': ' + output.splitlines()[-1])
             time.sleep(1)
-
 
     def scan(self):
         arr = list(HandbrakeProcess.default_args)
