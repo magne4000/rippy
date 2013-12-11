@@ -1,0 +1,3 @@
+[submodule "ask"]
+	path = ask
+	url = https://github.com/magne4000/ask.git
