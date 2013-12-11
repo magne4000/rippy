@@ -207,7 +207,7 @@ class HandbrakeProcess:
             # Progress output eg. "Encoding: task 1 of 2, 0.01 %"
             output = non_block_read(stdout).strip()
             if (output):
-                Ask._print(self.filename + ': ' + output.splitlines()[-1])
+                Ask._print(self.filename + ': ' + output.splitlines()[-1], False)
             time.sleep(1)
 
     def scan(self):
