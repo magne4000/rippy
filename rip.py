@@ -19,7 +19,7 @@ from threading import Thread
 from tools import getbitrate
 from Queue import Queue, Empty
 from ask.ask import Ask
-from ask.question import Choices, YesNo, Text, Path
+from ask.question import Choices, YesNo, Text, Path, Float
 from tools import getbpf
 
 class Preference:
@@ -123,7 +123,7 @@ class Q:
     ask_srt_yn = YesNo('Would you like to add a subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
     ask_srt_yn_bis = YesNo('Would you like to add another subtitle track ?', lambda a: Q.ask_srt if a.lower() == 'y' else False)
     ask_srt = Path('Path of subtitles file :')
-    ask_bpf = Text('Bits*(pixels/frame) can\'t be calculated, please choose a value manually :')
+    ask_bpf = Float('Bits*(pixels/frame) can\'t be calculated, please choose a value manually :')
 
 class Answers:
     """
