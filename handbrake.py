@@ -3,9 +3,7 @@
 #
 # Distributed under terms of the MIT license.
 
-import re
-import time
-import sys
+import re, time, sys
 from os import path
 from subprocess import Popen, PIPE
 from threading import Thread
@@ -236,5 +234,8 @@ class HandbrakeProcess:
         child.wait()
         for t in threads:
             t.join(timeout=1)
+        if "--scan" not in args: # If ripping 
+            if "Signal 2 received, terminating" in child.stderr.read(): # If process received CTRL+C
+                raise KeyboardInterrupt
         return child.stderr.read()
 

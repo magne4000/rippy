@@ -12,8 +12,8 @@ to generate lightweight x264 HD Videos (720p/1080p) without quality loss.
 from argparse import ArgumentParser
 import xml.etree.ElementTree as ET
 import os.path as path
-from os import walk
-import sys, traceback
+from os import walk, makedirs, remove, rename
+import sys, traceback, errno, signal
 from handbrake import AudioStream, HandbrakeProcess, HandbrakeOutputParser
 from threading import Thread
 from tools import getbitrate
@@ -21,6 +21,7 @@ from Queue import Queue, Empty
 from ask.ask import Ask
 from ask.question import Choices, YesNo, Text, Path, Float
 from tools import getbpf
+from os.path import expanduser
 
 class Preference:
     """
@@ -100,16 +101,25 @@ class Worker:
         while not Worker.finished:
             try:
                 task = Worker.rip_queue.get(True, 3)
-                task.rip()
-                Worker.rip_queue.task_done()
+                try:
+                    task.rip()
+                    Worker.rip_queue.task_done()
+                except KeyboardInterrupt:
+                    Worker.finished = True
+                    Worker.rip_queue.task_done()
+                    with Worker.rip_queue.mutex:
+                        Worker.rip_queue.queue.clear()
+                        Worker.rip_queue.all_tasks_done.notify_all()
             except Empty:
                 pass
 
     @staticmethod
     def launch():
         t_rip = Thread(target=Worker.rip_worker)
+        t_rip.daemon = True
         t_rip.start()
         t_q = Thread(target=Worker.q_worker)
+        t_q.daemon = True
         t_q.start()
 
     @staticmethod
@@ -164,8 +174,12 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset})
-    Worker.rip_queue.join()
-    Worker.setfinished(True)
+    try:
+        Worker.rip_queue.join()
+        Worker.setfinished(True)
+    except KeyboardInterrupt:
+        print("\nKeyboard interrupt received. Aborting.")
+
 
 def handle_ask(f, dest, hop, preset):
     """
