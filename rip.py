@@ -104,6 +104,7 @@ class Worker:
                 try:
                     task.rip()
                     Worker.rip_queue.task_done()
+                    delete_from_file(task.filepath)
                 except KeyboardInterrupt:
                     Worker.finished = True
                     Worker.rip_queue.task_done()
@@ -156,12 +157,55 @@ def loadpreset():
         preset.addpreference(Preference(child.get('key'), child.get('required', False), child.get('multivalued', False), child.get('separator'), child.get('value')))
     return preset
 
+def get_restore_filepath():
+    home = expanduser("~")
+    filedir = path.join(home, '.config', 'rippy')
+    try:
+        makedirs(filedir)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and path.isdir(filedir):
+            pass
+        else: raise
+    return path.join(filedir, 'last.state')
+
+def save_file_list(filelist):
+    filepath = get_restore_filepath()
+    with open(filepath, 'w') as fhandler:
+        for onefile in filelist:
+            fhandler.write(onefile + '\n')
+
+def delete_from_file(deletefile):
+    filepath = get_restore_filepath()
+    filepathtmp = filepath + '.tmp'
+    if path.isfile(filepath):
+        with open(filepathtmp, 'w') as writehandler:
+            with open(filepath, 'r') as readhandler:
+                for line in readhandler:
+                    if line != deletefile:
+                        writehandler.write(line)
+    remove(filepath)
+    rename(filepathtmp, filepath)
+
+def get_restored_files():
+    filepath = get_restore_filepath()
+    if path.isfile(filepath):
+        with open(filepath, 'r') as readhandler:
+            for line in readhandler:
+                yield line.strip()
+
 def handle(args, preset):
     """
     Called by main
     """
     Worker.launch()
-    for f in scan(args.files):
+    files = []
+    if args.restore:
+        files = get_restored_files()
+    else:
+        files = args.files
+        save_file_list(files)
+
+    for f in scan(files):
         hp = HandbrakeProcess(f)
         hp.scan()
         hop = HandbrakeOutputParser(hp.buf)
@@ -286,10 +330,13 @@ def scan(files):
 def main():
     parser = ArgumentParser(description="Rippy")
     parser.add_argument("-d", "--dest", dest='dest', help='Folder where ripped files will be stored')
-    parser.add_argument("files", nargs='+', help='List of files or folders that will be ripped recursively')
+    parser.add_argument("files", nargs='*', help='List of files or folders that will be ripped recursively')
+    parser.add_argument("-r", "--restore", action='store_true', dest='restore', help='Will rip files that have not been ripped the last time')
     parser.set_defaults(func=handle)
-    preset = loadpreset()
     args = parser.parse_args()
+    if not args.restore and len(args.files) == 0:
+        parser.error('At least -r option or one file must be specified')
+    preset = loadpreset()
     args.func(args, preset)
 
 if __name__ == '__main__':
