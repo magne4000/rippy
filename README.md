@@ -29,4 +29,5 @@ positional arguments:
 optional arguments:
   -h, --help            show this help message and exit
   -d DEST, --dest DEST  Folder where ripped files will be stored
+  -r, --restore         Will rip files that have not been ripped the last time
 ```
