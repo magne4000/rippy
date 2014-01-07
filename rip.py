@@ -117,10 +117,8 @@ class Worker:
     @staticmethod
     def launch():
         t_rip = Thread(target=Worker.rip_worker)
-        t_rip.daemon = True
         t_rip.start()
         t_q = Thread(target=Worker.q_worker)
-        t_q.daemon = True
         t_q.start()
 
     @staticmethod
