@@ -91,7 +91,7 @@ class Worker:
         while not Worker.finished:
             try:
                 q = Worker.questions_queue.get(True, 3)
-                handle_ask(q['f'], q['dest'], q['hop'], q['preset'])
+                handle_ask(q['args'], q['f'], q['dest'], q['hop'], q['preset'])
                 Worker.questions_queue.task_done()
             except Empty:
                 pass
@@ -215,7 +215,7 @@ def handle(args, preset):
         except:
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
-        Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset})
+        Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset, 'args': args})
     try:
         Worker.rip_queue.join()
         Worker.setfinished(True)
@@ -223,7 +223,7 @@ def handle(args, preset):
         print("\nKeyboard interrupt received. Aborting.")
 
 
-def handle_ask(f, dest, hop, preset):
+def handle_ask(args, f, dest, hop, preset):
     """
     Handles question asking and answering.
     All questions are queued and asked one at a time.
@@ -242,7 +242,7 @@ def handle_ask(f, dest, hop, preset):
     if getbpf(hop.video().width) is None:
         a = Ask()
         answers.bpf = a.ask(Q.ask_bpf)
-    handle_rip(f, dest, hop, preset, answers)
+    handle_rip(args, f, dest, hop, preset, answers)
 
 def getnewfilepath(dest, filepath):
     """
@@ -257,7 +257,7 @@ def getnewfilepath(dest, filepath):
         filename = path.basename(path.dirname(filepath))
         return path.join(dest, filename+'.mkv')
 
-def handle_rip(filepath, dest, hop, preset, answers=None):
+def handle_rip(args, filepath, dest, hop, preset, answers=None):
     """
     Handles ripping with HandbrakeCLI with the help of a queue.
     """
@@ -302,6 +302,10 @@ def handle_rip(filepath, dest, hop, preset, answers=None):
     proc.setoutput(getnewfilepath(dest, filepath))
     proc.setbitrate(bitrate)
     proc.settitle(hop.title)
+    # Sample generation if necessary
+    if args.sample:
+        proc.setoption('start-at', 'duration:%d' % args.startfrom)
+        proc.setoption('stop-at', 'duration:%d' % (args.startfrom + 30))
     for k, v in preset.getoptions():
         proc.setoption(k, v)
     Worker.rip_queue.put(proc)
@@ -328,6 +332,8 @@ def scan(files):
 def main():
     parser = ArgumentParser(description="Rippy")
     parser.add_argument("-d", "--dest", dest='dest', help='Folder where ripped files will be stored')
+    parser.add_argument("--sample", dest='sample', help='Only generates 30s samples', action="store_true", default=False)
+    parser.add_argument("--from", dest='startfrom', default=300, help='When does the 30s sample should start in secondes (default: 300)', type=int)
     parser.add_argument("files", nargs='*', help='List of files or folders that will be ripped recursively')
     parser.add_argument("-r", "--restore", action='store_true', dest='restore', help='Will rip files that have not been ripped the last time')
     parser.set_defaults(func=handle)
