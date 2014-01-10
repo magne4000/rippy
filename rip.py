@@ -318,9 +318,9 @@ def scan(files):
                 for name in files:
                     if '.' in name and name.rsplit('.', 1)[1].lower() in ['mkv']:
                         yield path.join(root, name)
-                if 'BDMV' in dirs: # BluRay folder
+                if 'BDMV' in (adir.upper() for adir in dirs): # BluRay folder
                     yield(root)
-                if 'VIDEO_TS.BUP' in files: # DVD folder
+                if 'VIDEO_TS.BUP' in (afile.upper() for afile in files): # DVD folder
                     yield(root)
         else:
             yield absfile
