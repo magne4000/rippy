@@ -97,35 +97,44 @@ class HandbrakeOutputParser:
 
     def parse(self):
         block = None
+        intitle = False
         for line in self.buf.split('\n'):
-            if 'audio tracks:' in line:
-                block = 'Audio'
-            elif 'subtitle tracks:' in line:
-                block = 'Subtitle'
-            elif line.startswith('  +'):
-                block = None
-            if block == 'Audio':
-                stream = AudioStream(line)
-                if stream.parse():
-                    self.streams['audio'].append(stream)
-            elif block == 'Subtitle':
-                stream = SubtitleStream(line)
-                if stream.parse():
-                    self.streams['subtitle'].append(stream)
-            elif 'size: ' in line:
-                stream = VideoStream(line)
-                if stream.parse():
-                    self.streams['video'] = stream
-                    if self.fps is None:
-                        self.fps = stream.fps
-            elif 'duration: ' in line:
-                matches = HandbrakeOutputParser.re_duration.search(line)
-                if matches is not None:
-                    self.duration = intduration(matches.groupdict()['duration'])
-            elif line.startswith('+ title'):
+            if line.startswith('+ title'):
+                if intitle:
+                    """
+                    second video track, we just need the first one, so we can exit parse.
+                    TODO: When multiple video tracks are available, ask the user to choose one.
+                    """
+                    return
                 matches = HandbrakeOutputParser.re_title.search(line)
                 if matches is not None:
+                    intitle = True
                     self.title = matches.group(1)
+            if intitle:
+                if 'audio tracks:' in line:
+                    block = 'Audio'
+                elif 'subtitle tracks:' in line:
+                    block = 'Subtitle'
+                elif line.startswith('  +'):
+                    block = None
+                if block == 'Audio':
+                    stream = AudioStream(line)
+                    if stream.parse():
+                        self.streams['audio'].append(stream)
+                elif block == 'Subtitle':
+                    stream = SubtitleStream(line)
+                    if stream.parse():
+                        self.streams['subtitle'].append(stream)
+                elif 'size: ' in line:
+                    stream = VideoStream(line)
+                    if stream.parse():
+                        self.streams['video'] = stream
+                        if self.fps is None:
+                            self.fps = stream.fps
+                elif 'duration: ' in line:
+                    matches = HandbrakeOutputParser.re_duration.search(line)
+                    if matches is not None:
+                        self.duration = intduration(matches.groupdict()['duration'])
 
 
     def audio(self):
@@ -200,7 +209,7 @@ class HandbrakeProcess:
                     arr.append(str(v))
         return arr
 
-    def _ripbuf(self, stdout):
+    def _printbuf(self, stdout):
         while True:
             # Progress output eg. "Encoding: task 1 of 2, 0.01 %"
             output = non_block_read(stdout).strip()
@@ -210,13 +219,13 @@ class HandbrakeProcess:
 
     def scan(self):
         arr = list(HandbrakeProcess.default_args)
-        arr.extend(["--scan", "--title", "0", "--min-duration", "600", "--input", self.filepath])
+        arr.extend(["--scan", "--title", "0", "--min-duration", "700", "--input", self.filepath])
         self.buf = self._call(arr)
 
     def rip(self):
         arr = list(HandbrakeProcess.default_args)
         arr.extend(self._getargs())
-        self._call(arr, handle_stdout=self._ripbuf)
+        self._call(arr, handle_stdout=self._printbuf)
 
     def _call(self, args, handle_stdout=None, handle_stderr=None):
         child = Popen(args, stderr=PIPE, stdout=PIPE)
