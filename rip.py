@@ -216,7 +216,8 @@ def handle(args, preset):
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
         if args.summary:
-            hop.summary()
+            audio_streams, subtitle_streams = get_prefered(hop, preset)
+            hop.summary(audio_streams, subtitle_streams)
         else:
             Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset, 'args': args})
     try:
@@ -260,17 +261,12 @@ def getnewfilepath(dest, filepath):
         filename = path.basename(path.dirname(filepath))
         return path.join(dest, filename+'.mkv')
 
-def handle_rip(args, filepath, dest, hop, preset, answers=None):
-    """
-    Handles ripping with HandbrakeCLI with the help of a queue.
-    """
+def get_prefered(hop, preset):
     prefered_audio = preset.getpreference('audio-language')
     prefered_codec = preset.getpreference('audio-codec')
     prefered_sub = preset.getpreference('subtitle-language')
     audio_streams = {}
     subtitle_streams = []
-    bpf = answers.bpf if answers is not None else None
-    proc = HandbrakeProcess(filepath)
     
     def getindex(elt, elts):
         i = 0
@@ -292,10 +288,22 @@ def handle_rip(args, filepath, dest, hop, preset, answers=None):
                         audio_streams[audio.language] = audio
             else:
                 audio_streams[audio.language] = audio
+
     ''' subtitles '''
     for sub in hop.subtitle():
         if sub.language in prefered_sub:
             subtitle_streams.append(sub)
+
+    return audio_streams, subtitle_streams
+  
+
+def handle_rip(args, filepath, dest, hop, preset, answers=None):
+    """
+    Handles ripping with HandbrakeCLI with the help of a queue.
+    """
+    bpf = answers.bpf if answers is not None else None
+    proc = HandbrakeProcess(filepath)
+    audio_streams, subtitle_streams = get_prefered(hop, preset)
     
     bitrate = getbitrate(hop.video().width, hop.video().height, hop.video().fps, bpf)
     proc.setaudio([audio.position for audio in audio_streams.values()])

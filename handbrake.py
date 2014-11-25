@@ -107,12 +107,18 @@ class HandbrakeOutputParser:
         self.fps = None
         self.title = None
 
-    def summary(self):
-        print(self.streams['video'])
+    def summary(self, p_audio_streams, p_sub_streams):
+        print('* %s' % self.streams['video'])
         for x in self.streams['audio']:
-            print(x)
+            sformat = '  %s'
+            if x.position in [audio.position for audio in p_audio_streams.values()]:
+                sformat = '* %s'
+            print(sformat % x)
         for x in self.streams['subtitle']:
-            print(x)
+            sformat = '  %s'
+            if x.position in [sub.position for sub in p_sub_streams]:
+                sformat = '* %s'
+            print(sformat % x)
         print('Duration : %s' % self.duration)
         print('FPS : %s' % self.fps)
         print('Title : %s' % self.title)
