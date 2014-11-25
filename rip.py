@@ -215,7 +215,10 @@ def handle(args, preset):
         except:
             sys.stderr.write(f+'\n')
             traceback.print_exc(file=sys.stderr)
-        Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset, 'args': args})
+        if args.summary:
+            hop.summary()
+        else:
+            Worker.questions_queue.put({'f': f, 'dest': args.dest, 'hop': hop, 'preset': preset, 'args': args})
     try:
         Worker.rip_queue.join()
         Worker.setfinished(True)
@@ -336,6 +339,7 @@ def main():
     parser.add_argument("--from", dest='startfrom', default=300, help='When does the 30s sample should start in secondes (default: 300)', type=int)
     parser.add_argument("files", nargs='*', help='List of files or folders that will be ripped recursively')
     parser.add_argument("-r", "--restore", action='store_true', dest='restore', help='Will rip files that have not been ripped the last time')
+    parser.add_argument("--summary", action='store_true', dest='summary', help='Print a summary the operations, then exits')
     parser.set_defaults(func=handle)
     args = parser.parse_args()
     if not args.restore and len(args.files) == 0:

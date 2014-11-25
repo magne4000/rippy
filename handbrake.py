@@ -33,20 +33,24 @@ class AudioStream(Stream):
     """
     An audio stream representation
     """
-    re_parse = re.compile("\+\s(?P<position>\d+).*?\((?P<codec>.*?)\)\s\((?P<channels>\d(?:\.\d))\sch\)\s\(.*?\:\s(?P<language>\w+)\)(:?,\s(?P<frequency>\d+)Hz,\s(?P<bitrate>\d+)bps)?")
+    re_parse = re.compile("\+\s(?P<position>\d+).*?\((?P<codec>.*?)\)\s\((?P<type>.*?)\)\s\(.*?\:\s(?P<language>\w+)\)(:?,\s(?P<frequency>\d+)Hz,\s(?P<bitrate>\d+)bps)?")
 
     def parse(self):
         matches = AudioStream.re_parse.search(self.buf)
         if matches is not None:
             results = matches.groupdict()
             self.language = results['language']
-            self.channels = results['channels']
+            self.type = results['type']
             self.codec = results['codec']
             self.frequency = results['frequency']
             self.position = results['position']
             self.bitrate = results['bitrate']
             return True
         return False
+
+    def __str__(self):
+        return 'AudioStream #%s (language: %s) (type: %s) (codec: %s) (frequency: %s) (bitrate: %s)' %\
+            (self.position, self.language, self.type, self.codec, self.frequency, self.bitrate)
         
 class VideoStream(Stream):
     """
@@ -64,6 +68,10 @@ class VideoStream(Stream):
             self.ratio = round(float(self.width)/float(self.height))
             return True
         return False
+    
+    def __str__(self):
+        return 'VideoStream (width: %s) (height: %s) (FPS: %s) (ratio: %s)' %\
+            (self.width, self.height, self.fps, self.ratio)
 
 class SubtitleStream(Stream):
     """
@@ -80,6 +88,10 @@ class SubtitleStream(Stream):
             self.encoding = results['encoding']
             return True
         return False
+    
+    def __str__(self):
+        return 'SubtitleStream #%s (language: %s) (encoding: %s)' %\
+            (self.position, self.language, self.encoding)
         
 class HandbrakeOutputParser:
     """
@@ -94,6 +106,16 @@ class HandbrakeOutputParser:
         self.duration = None
         self.fps = None
         self.title = None
+
+    def summary(self):
+        print(self.streams['video'])
+        for x in self.streams['audio']:
+            print(x)
+        for x in self.streams['subtitle']:
+            print(x)
+        print('Duration : %s' % self.duration)
+        print('FPS : %s' % self.fps)
+        print('Title : %s' % self.title)
 
     def parse(self):
         block = None
